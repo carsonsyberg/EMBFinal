@@ -3,29 +3,51 @@
 
 void config_uart(void) {
     // set UCSWRST bit before configuring UART
-    // Initialize all eUSCI_A registers with UCSWRST = 1 (including UCAxCTL1)
+    EUSCI_A3->CTLW0 |= EUSCI_A_CTLW0_SWRST;
+
+    // select SMCLK as BRCLK source
+    EUSCI_A3->CTLW0 |= EUSCI_B_CTLW0_SSEL__SMCLK;
+
     // pick asynchronus mode
-    // set Baud Rate
-        // 1. calculate N = freq of BRCLK / Baud Rate
-        // [if N > 16 continue with step 3, otherwise with step 2]
-        // 2. OS16 = 0, UCBRx = INT(N) [continue with step 4]
-        // 3. OS16 = 1, UCBRx = INT(N/16), UCBRFx = INT([(N/16) – INT(N/16)] × 16)
-        // 4. UCBRSx can be found by looking up the fractional part of N ( = N - INT(N) ) in table Table 24-4
-        // 5. If OS16 = 0 was chosen, a detailed error calculation is recommended to be performed
+    EUSCI_A3->CTLW0 &= ~(BIT9) & ~(BIT9 << 1);
+
+// Baud Rate calculation //
+    // 12000000/(16*9600) = 78.125
+    // Fractional portion = 0.125
+    // User's Guide Table 21-4: UCBRSx = 0x10
+    // UCBRFx = int ( (78.125-78)*16) = 2
+    EUSCI_A3->BRW = 78;                     // 12000000/16/9600
+    EUSCI_A3->MCTLW = (2 << EUSCI_A_MCTLW_BRF_OFS) | EUSCI_A_MCTLW_OS16;
+
+    EUSCI_A3->CTLW0 &= ~EUSCI_A_CTLW0_SWRST; // Initialize eUSCI
+    EUSCI_A3->IFG &= ~EUSCI_A_IFG_RXIFG;    // Clear eUSCI RX interrupt flag
+    EUSCI_A3->IE |= EUSCI_A_IE_RXIE;        // Enable USCI_A0 RX interrupt
+
     // set stop bits UCAxCTLW0
     // set parity bits UCAxCTLW0
     // set number of data bits UCAxCTLW0
+
+    // Enable eUSCIA0 interrupt in NVIC module
+    NVIC->ISER[0] = 1 << ((EUSCIA3_IRQn) & 31);
+}
+
+// UART interrupt service routine (For Recieving)
+uint8_t EUSCIA3_IRQHandler(void)
+{
+    uint8_t data;
+
+    if (EUSCI_A3->IFG & EUSCI_A_IFG_RXIFG) {
+        EUSCI_A3->IFG &= ~EUSCI_A_IFG_RXIFG;// Clear interrupt
+        data = EUSCI_A3->RXBUF;           // Clear buffer
+    }
+
+    return data;
 }
 
 void write_data(uint8_t data) {
-    //enable transmit
-    // clear UCSWRST bit to get to IDLE
-    // write data to UCAxTXBUF to initiate transmission
-    // set UCSWRST bit to turn off
+
+    //while(!(EUSCI_A3->IFG & EUSCI_A_IFG_TXIFG));
+            EUSCI_A3->TXBUF = data;           // Load data onto buffer
+            P1->OUT |= EUSCI_A3->TXBUF;
 }
 
-uint8_t read_data(uint8_t data) {
-    // clear UCSWRST bit to get to IDLE
-    // take data from UCAxRXBUF
-    // set UCSWRST bit to turn off
-}

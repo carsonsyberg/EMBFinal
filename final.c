@@ -108,6 +108,7 @@ void config_GPIO(void) {
 	DDRB = 0b11111111; // all port B are outputs
 	
 	// UART Pins
+	DDRD |= 0b100;
 	//	DDRx = output TX pin
 	//	DDRx = input RX pin
 }
@@ -124,7 +125,7 @@ void config_UART(void) {
 	// setting the Baud Rate
 	UBRR0H = (unsigned char)(MYUBRR>>8);
 	UBRR0L = (unsigned char)MYUBRR;
-	U2X0 = 0; // configures clock for asynchronous normal
+	//U2X0 = 0; // configures clock for asynchronous normal
 	
 	// Enables Receiver and Transmitter
 	UCSR0B = (1<<RXEN0)|(1<<TXEN0);
